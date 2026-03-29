@@ -703,10 +703,6 @@ class GitHubDownloader(ObjaverseSource):
                 )
             )
 
-        import pdb
-
-        pdb.set_trace()
-
         for x in out:
             out_dict.update(x)
 

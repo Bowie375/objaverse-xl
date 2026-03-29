@@ -131,6 +131,41 @@ class GitHubDownloader(ObjaverseSource):
         return f"{org}/{repo}/{commit_hash}"
 
     @classmethod
+    def _parse_file_identifier(cls, file_identifier: str) -> Optional[Dict[str, str]]:
+        """Parse a GitHub blob URL into org / repo / relative path.
+
+        Returns None when the URL does not match the expected pattern.
+        """
+        parts = file_identifier.split("/")
+        if len(parts) < 8:
+            return None
+        if parts[0] not in {"http:", "https:"}:
+            return None
+        if parts[2] != "github.com":
+            return None
+        if parts[5] != "blob":
+            return None
+
+        org = parts[3]
+        repo = parts[4]
+        relative_path = "/".join(parts[7:])
+        if relative_path == "":
+            return None
+        return {"org": org, "repo": repo, "relative_path": relative_path}
+
+    @classmethod
+    def _get_local_file_path_from_identifier(
+        cls, file_identifier: str, base_dir: str
+    ) -> Optional[str]:
+        """Compute local file path for a fileIdentifier when repos are saved as files."""
+        parsed = cls._parse_file_identifier(file_identifier)
+        if parsed is None:
+            return None
+        return os.path.join(
+            base_dir, "repos", parsed["org"], parsed["repo"], parsed["relative_path"]
+        )
+
+    @classmethod
     def _git_shallow_clone(cls, repo_url: str, target_directory: str) -> bool:
         """Helper function to shallow clone a repo with git.
 
@@ -615,6 +650,22 @@ class GitHubDownloader(ObjaverseSource):
             f"Found {len(repo_ids_to_download)} repoIds not yet downloaded. Downloading now..."
         )
 
+        # Include already-downloaded objects only when repos are saved as unpacked files.
+        out_dict = {}
+        if save_repo_format == "files":
+            cached_objects = objects[
+                objects["repoIdHash"].apply(
+                    lambda x: "/".join(x.split("/")[:2]) in downloaded_repo_ids
+                )
+            ]
+            for file_identifier in cached_objects["fileIdentifier"].tolist():
+                local_path = cls._get_local_file_path_from_identifier(
+                    file_identifier=file_identifier,
+                    base_dir=path,
+                )
+                if local_path is not None and fs.exists(local_path):
+                    out_dict[file_identifier] = local_path
+
         # get the objects to download
         groups = list(objects.groupby("repoIdHash"))
         with Pool(processes=processes) as pool:
@@ -652,7 +703,10 @@ class GitHubDownloader(ObjaverseSource):
                 )
             )
 
-        out_dict = {}
+        import pdb
+
+        pdb.set_trace()
+
         for x in out:
             out_dict.update(x)
 

@@ -501,9 +501,12 @@ class SketchfabDownloader(ObjaverseSource):
             # add the existing downloaded uids to the return dict
             already_downloaded_uids = uids_set.intersection(existing_uids)
             for uid in already_downloaded_uids:
+                file_identifier = objects_uid_index.loc[uid]["fileIdentifier"]
                 hf_object_path = hf_object_paths[uid]
                 fs_abs_object_path = os.path.join(versioned_dirname, hf_object_path)
-                out[cls.uid_to_file_identifier(uid)] = fs_abs_object_path
+                fs_local_object_path = os.path.join(path, hf_object_path)
+                if fs.exists(fs_local_object_path):
+                    out[file_identifier] = fs_abs_object_path
 
             logger.info(
                 f"Found {len(already_downloaded_uids)} objects already downloaded"

@@ -299,10 +299,12 @@ class SmithsonianDownloader(ObjaverseSource):
                 if uid not in existing_uids:
                     objects_to_download.append(item)
                 else:
+                    local_path = os.path.join(path, f"{uid}.glb")
+                    if fs.exists(local_path):
+                        out[file_identifier] = os.path.join(
+                            os.path.expanduser(objects_dir), f"{uid}.glb"
+                        )
                     already_downloaded_objects.add(file_identifier)
-                out[file_identifier] = os.path.join(
-                    os.path.expanduser(objects_dir), f"{uid}.glb"
-                )
         else:
             existing_uids = set()
             objects_to_download = [item for _, item in objects.iterrows()]
